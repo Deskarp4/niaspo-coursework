@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Frontend</title>
+</head>
+<body>
+  <h1>Frontend is running!</h1>
+  <button id="check-backend">Check backend</button>
+  <div id="response"></div>
+
+  <script>
+    const button = document.getElementById('check-backend');
+    const responseDiv = document.getElementById('response');
+
+    button.addEventListener('click', async () => {
+      try {
+        const res = await fetch('http://backend:5000/');
+        const text = await res.text();
+        responseDiv.textContent = text;
+      } catch (err) {
+        responseDiv.textContent = 'Cannot reach backend';
+      }
+    });
+  </script>
+</body>
+</html>
