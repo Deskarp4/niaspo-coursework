@@ -1,26 +1,33 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Frontend</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Frontend is running!</h1>
-  <button id="check-backend">Check backend</button>
-  <div id="response"></div>
+  <div class="card-parent">
+    <div class="card">
+      <h1>Frontend</h1>
+      <p>Выберите источник данных</p>
 
-  <script>
-    const button = document.getElementById('check-backend');
-    const responseDiv = document.getElementById('response');
+      <div class="actions">
+        <button class="action-btn" id="api-1">API 1</button>
+        <button class="action-btn" id="api-2">API 2</button>
+        <button class="action-btn" id="api-combined">Combined</button>
+      </div>
 
-    button.addEventListener('click', async () => {
-      try {
-        const res = await fetch('http://backend:5000/');
-        const text = await res.text();
-        responseDiv.textContent = text;
-      } catch (err) {
-        responseDiv.textContent = 'Cannot reach backend';
-      }
-    });
-  </script>
+      <!-- Кнопка для отображения данных -->
+      <button class="show-data-btn">Показать данные</button>
+
+      <!-- Ответ от backend -->
+      <div class="response">
+        <div class="empty">Нажмите кнопку "Показать данные"</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
