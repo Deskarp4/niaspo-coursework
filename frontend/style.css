@@ -6,7 +6,7 @@
   --muted: #9ca3af;
   --accent: #6366f1;
   --accent-hover: #4f46e5;
-  --radius: 19px; /* было 16px */
+  --radius: 19px; 
 }
 
 * {
@@ -31,31 +31,31 @@ body {
 
 .card-parent {
   width: 100%;
-  padding: 28px; /* было 24px */
+  padding: 28px; 
   display: flex;
   justify-content: center;
 }
 
 .card {
   width: 100%;
-  max-width: 624px;      /* было 520px */
+  max-width: 624px;      
   background: var(--card-bg);
   backdrop-filter: blur(19px);
   border: 1.2px solid var(--border);
   border-radius: var(--radius);
-  padding: 34px;         /* было 28px */
+  padding: 34px;         
   box-shadow: 0 36px 96px rgba(0, 0, 0, 0.5);
   text-align: center;
 }
 
 .card h1 {
-  font-size: 31px;       /* было 26px */
+  font-size: 31px;
   font-weight: 600;
   margin-bottom: 10px;
 }
 
 .card p {
-  font-size: 17px;       /* было 14px */
+  font-size: 17px;
   color: var(--muted);
   margin-bottom: 29px;
 }
@@ -63,15 +63,15 @@ body {
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;             /* было 12px */
-  margin-bottom: 19px;   /* было 16px */
+  gap: 14px;
+  margin-bottom: 19px;
 }
 
 .action-btn, .show-data-btn {
-  padding: 14px 19px;    /* было 12px 16px */
-  font-size: 17px;       /* было 14px */
+  padding: 14px 19px;
+  font-size: 17px;
   font-weight: 500;
-  border-radius: 14px;   /* было 12px */
+  border-radius: 14px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text);
@@ -84,8 +84,8 @@ body {
 }
 
 .show-data-btn {
-  margin-top: 17px;       /* было 14px */
-  padding: 14px 96px;     /* было 12px 80px */
+  margin-top: 17px;
+  padding: 14px 96px;
   border: none;
 }
 
@@ -98,22 +98,23 @@ body {
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 12px 36px rgba(99, 102, 241, 0.45); /* было 0 10px 30px */
+  box-shadow: 0 10px 32px rgba(99, 102, 241, 0.45);
 }
 
 .response {
-  margin-top: 24px;       /* было 20px */
+  margin-top: 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;               /* было 12px */
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 14px;
 }
 
 .data-item {
-  padding: 17px 19px;     /* было 14px 16px */
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  border-radius: 14px;    /* было 12px */
-  font-size: 17px;        /* было 14px */
+  padding: 17px 19px;
+  
+  font-size: 17px; 
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -122,35 +123,23 @@ body {
 
 .data-item span {
   color: var(--muted);
-  font-size: 15px;        /* было 13px */
+  font-size: 15px;
 }
 
 .loading, .empty {
   text-align: center;
-  font-size: 17px;        /* было 14px */
+  font-size: 17px;
   color: var(--muted);
-  padding: 19px;          /* было 16px */
+  padding: 19px;
 }
 
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(7px); /* было 6px */
+    transform: translateY(7px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* 📱 МОБИЛЬНАЯ АДАПТАЦИЯ */
-@media (max-width: 768px) {
-  .card {
-    padding: 24px;       /* было 20px */
-    max-width: 100%;
-  }
-
-  .card h1 {
-    font-size: 24px;     /* было 20px */
   }
 }

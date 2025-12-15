@@ -10,7 +10,6 @@ const PORT = 5000
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const Pool = pkg.Pool;
 
-// Database
 const pool = new Pool({
   user: 'myuser',
   host: 'postgres',
@@ -20,35 +19,38 @@ const pool = new Pool({
   }
 )
 
-// Redis 
-
 const redisClient = createClient({
   url: 'redis://redis:6379'
 })
 await redisClient.connect();
 
-// RestAPI
 
 app.get('/api/objects', async (req, res) => {
   try {
     const cached = await redisClient.get('objects')
+    const container = process.env.HOSTNAME
+
     if (cached) {
-      console.log('Обращение REDIS')
-      return res.json(JSON.parse(cached))
+      return res.json({
+        source: 'redis',
+        container,
+        data: JSON.parse(cached)
+      })
     }
 
-    const result = await pool.query('SELECT * FROM objects');
-
+    const result = await pool.query('SELECT * FROM objects')
     await redisClient.setEx('objects', 60, JSON.stringify(result.rows))
-    console.log('Данные сохранены в Redis');
 
-    res.json(result.rows);
+    res.json({
+      source: 'postgres',
+      container,
+      data: result.rows
+    })
   } catch (err) {
-    res.status(500).json({error: 'Ошибка сервера'})
+    res.status(500).json({ error: 'Ошибка сервера' })
   }
-});
+})
 
-// API
 app.use(cors({ origin: 'http://localhost:8080' }));
 
 app.listen(PORT, () => {

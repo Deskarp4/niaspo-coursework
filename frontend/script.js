@@ -1,73 +1,89 @@
-// Получаем все кнопки источников
 const actionButtons = document.querySelectorAll('.action-btn');
 const showDataBtn = document.querySelector('.show-data-btn');
 const response = document.querySelector('.response');
 
-let selectedSource = null;
+let activeMode = null;
 
-// Выбор источника данных
 actionButtons.forEach(btn => {
   btn.addEventListener('click', () => {
-    // Снимаем active со всех кнопок
     actionButtons.forEach(b => b.classList.remove('active'));
-
-    // Добавляем active к текущей
     btn.classList.add('active');
+    activeMode = btn.id;
 
-    // Определяем источник по id
-    selectedSource = btn.id;
-
-    // Очистка контейнера до нажатия "Показать данные"
-    response.innerHTML = `<div class="empty">Нажмите "Показать данные" для загрузки данных</div>`;
+    response.innerHTML =
+      '<div class="empty">Нажмите «Показать данные»</div>';
   });
 });
 
-// Загрузка данных при нажатии кнопки
 showDataBtn.addEventListener('click', async () => {
-  if (!selectedSource) {
-    response.innerHTML = `<div class="empty">Сначала выберите источник данных</div>`;
+  if (!activeMode) {
+    response.innerHTML =
+      '<div class="empty">Сначала выберите режим</div>';
     return;
   }
 
-  response.innerHTML = `<div class="loading">Загрузка...</div>`;
+  if (activeMode === 'combined') {
+    await combinedRequest();
+  }
 
-  try {
-    let apiEndpoint = '';
-
-    switch (selectedSource) {
-      case 'api-1':
-        apiEndpoint = '/api/1'; // можно обработать на бэке отдельно для первой реплики
-        break;
-      case 'api-2':
-        apiEndpoint = '/api/2'; // обработка второй реплики
-        break;
-      case 'api-combined':
-        apiEndpoint = '/api/objects'; // балансировка через upstream
-        break;
-      default:
-        throw new Error('Неизвестный источник данных');
-    }
-
-    const res = await fetch(apiEndpoint);
-    if (!res.ok) throw new Error('Ошибка сети: ' + res.status);
-
-    const data = await res.json();
-    response.innerHTML = ''; // очистка контейнера
-
-    if (!data.length) {
-      response.innerHTML = '<div class="empty">Нет данных</div>';
-    } else {
-      const ul = document.createElement('ul');
-      data.forEach(item => {
-        const li = document.createElement('li');
-        li.textContent = `ID: ${item.id}, Name: ${item.name}`;
-        li.classList.add('data-item'); // стиль из CSS
-        ul.appendChild(li);
-      });
-      response.appendChild(ul);
-    }
-  } catch (error) {
-    console.error('Ошибка:', error);
-    response.innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
+  if (activeMode === 'load') {
+    await loadSimulation();
   }
 });
+
+async function combinedRequest() {
+  response.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  try {
+    const res = await fetch('/api/objects');
+    if (!res.ok) throw new Error();
+
+    const result = await res.json();
+
+    response.innerHTML = `
+      <div class="empty">
+        Ответил контейнер: <b>${result.container}</b>
+      </div>
+    `;
+
+    const ul = document.createElement('ul');
+
+    result.data.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'data-item';
+      li.textContent = `ID: ${item.id}, Name: ${item.name}`;
+      ul.appendChild(li);
+    });
+
+    response.appendChild(ul);
+  } catch {
+    response.innerHTML = '<div class="empty">Ошибка загрузки</div>';
+  }
+}
+
+async function loadSimulation() {
+  response.innerHTML = '<div class="loading">Отправка 10 запросов...</div>';
+
+  const ul = document.createElement('ul');
+  response.innerHTML = '';
+  response.appendChild(ul);
+
+  for (let i = 1; i <= 10; i++) {
+    try {
+      const res = await fetch('/api/objects');
+      const result = await res.json();
+
+      const li = document.createElement('li');
+      li.className = 'data-item';
+      li.textContent = `Запрос ${i} → ${result.container}`;
+      ul.appendChild(li);
+
+      await new Promise(r => setTimeout(r, 200));
+    } catch {
+      const li = document.createElement('li');
+      li.className = 'data-item';
+      li.textContent = `Запрос ${i} → ошибка`;
+      ul.appendChild(li);
+    }
+  }
+}
