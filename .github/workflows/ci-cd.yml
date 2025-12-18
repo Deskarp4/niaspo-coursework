@@ -59,14 +59,14 @@ jobs:
           docker service ls
           docker stack ps platform-stack
 
-      # Health checks using Swarm DNS
+      # Health checks via published ports
       - name: Health checks
         run: |
           echo "Checking NGINX..."
-          curl -f http://platform-stack_nginx:80/api || curl -f http://platform-stack_nginx:80/ || exit 1
+          curl -f http://localhost:8080/api || curl -f http://localhost:8080/ || exit 1
 
           echo "Checking Backend..."
-          curl -f http://platform-stack_backend:5000/health || exit 1
+          curl -f http://localhost:5000/health || exit 1
 
       # Remove stack
       - name: Remove stack
