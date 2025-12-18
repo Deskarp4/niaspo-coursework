@@ -32,6 +32,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,10 +42,10 @@ jobs:
 
       # --- Сборка образов с тегами latest ---
       - name: Build backend image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:latest ./backend
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:latest -f ./backend/Dockerfile .
 
       - name: Build nginx image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest ./nginx
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest -f ./nginx/Dockerfile .
 
       # --- Юнит-тесты backend ---
       - name: Run backend unit tests
@@ -55,7 +56,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:latest \
             npm test
 
-      # --- Создаем override для тестов (убираем публикацию портов, чтобы избежать конфликта с services) ---
+      # --- Создаем override для тестов ---
       - name: Create docker-compose override for tests
         run: |
           cat <<EOF > docker-compose.override.yml
@@ -65,26 +66,26 @@ jobs:
               ports: []
             backend:
               environment:
-                - NODE_ENV=development  # Для тестов
+                - NODE_ENV=development
             postgres:
               ports: []
               volumes:
-                - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Если нужно для тестов
+                - ./init.sql:/docker-entrypoint-initdb.d/init.sql
             redis:
               ports: []
           EOF
 
-      # --- Интеграционные тесты (с override) ---
+      # --- Интеграционные тесты ---
       - name: Run integration tests
         run: |
           docker-compose -f docker-compose.yml -f docker-compose.override.yml up -d
-          sleep 15  # ждём поднятия сервисов
+          sleep 15
           docker-compose -f docker-compose.yml -f docker-compose.override.yml exec -T backend npm run test:integration
           docker-compose -f docker-compose.yml -f docker-compose.override.yml down
 
-      # --- Пуш образов в Docker Hub (только если тесты прошли) ---
+      # --- Пуш образов в Docker Hub ---
       - name: Log in to Docker Hub
-        if: success()  # Только если предыдущие шаги успешны
+        if: success()
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -96,4 +97,4 @@ jobs:
 
       - name: Push nginx image
         if: success()
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest  
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest
