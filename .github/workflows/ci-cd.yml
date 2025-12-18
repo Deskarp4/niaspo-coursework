@@ -24,34 +24,34 @@ jobs:
 
       # ---------- BUILD IMAGES FOR TESTING ----------
       - name: Build backend image
-        run: docker build -t test-backend ./backend
+        run: docker build -t test-backend -f backend/Dockerfile .
 
       - name: Build nginx image
-        run: docker build -t test-nginx ./nginx
+        run: docker build -t test-nginx -f nginx/Dockerfile .
 
       # ---------- START TEST ENV ----------
       - name: Start test environment
-        run: docker compose -f docker compose.ci.yml up -d
+        run: docker compose -f docker-compose.yml up -d
 
       - name: Wait for services
         run: |
           echo "Waiting for services to initialize..."
           sleep 25
-          docker compose -f docker compose.ci.yml ps
+          docker compose -f docker-compose.yml ps
 
       # ---------- INTEGRATION TESTS ----------
       - name: Health checks
         run: |
           echo "Checking backend health..."
-          curl -f http://localhost:8080/health
+          curl -f http://localhost:5000/health || exit 1
 
           echo "Checking API routing through nginx..."
-          curl -f http://localhost:8080/api || curl -f http://localhost:8080/
+          curl -f http://localhost:8080/api || curl -f http://localhost:8080/ || exit 1
 
       # ---------- CLEANUP ----------
       - name: Stop test environment
         if: always()
-        run: docker compose -f docker compose.ci.yml down -v
+        run: docker compose -f docker-compose.yml down -v
 
   cd:
     name: Build and Push Docker Images
@@ -75,13 +75,15 @@ jobs:
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: .
+          file: backend/Dockerfile
           push: true
           tags: ${{ env.BACKEND_IMAGE }}:latest
 
       - name: Build and push nginx
         uses: docker/build-push-action@v5
         with:
-          context: ./nginx
+          context: .
+          file: nginx/Dockerfile
           push: true
           tags: ${{ env.NGINX_IMAGE }}:latest
