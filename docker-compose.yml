@@ -4,25 +4,26 @@ services:
   nginx:
     image: deskarp/platform-nginx:latest
     ports:
-      - "8080:80"
+      - "8080:80"           # Swarm сам балансирует между репликами nginx
     deploy:
-      replicas: 1
+      replicas: 2           # 2 реплики nginx для балансировки
       restart_policy:
         condition: on-failure
+    networks:
+      - app-network
 
   backend:
     image: deskarp/platform-backend:latest
     environment:
       - NODE_ENV=development
-    ports:
-    - target: 5000
-      published: 5000
-      protocol: tcp
-      mode: ingress
+      - PORT=5000
+    # НЕ публикуем порт - доступ только через nginx
     deploy: 
       replicas: 2
       restart_policy:
         condition: on-failure
+    networks:
+      - app-network
 
   postgres:
     image: postgres:15
@@ -33,11 +34,16 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    configs:
+      - source: postgres_init
+        target: /docker-entrypoint-initdb.d/init.sql
     deploy:
       replicas: 1
       restart_policy:
         condition: on-failure
+    networks:
+      - app-network
 
   redis:
     image: redis:8.2.3
@@ -47,4 +53,17 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+    networks:
+      - app-network
 
+networks:
+  app-network:
+    driver: overlay
+    attachable: true
+
+configs:
+  postgres_init:
+    file: ./init.sql
+
+volumes:
+  postgres_data:
