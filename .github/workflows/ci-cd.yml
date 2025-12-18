@@ -1,120 +1,44 @@
-name: Ultra Simple CI/CD
+name: CI/CD - Test Environment Platform
 
-on: [push]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    # 1. Просто проверяем, что все собирается
-    - name: Check builds
-      run: |
-        echo "Checking backend..."
-        cd backend && npm install 2>/dev/null || true
-        echo "Backend check complete"
-        
-        echo "Creating test frontend..."
-        mkdir -p frontend
-        echo "<h1>OK</h1>" > frontend/index.html
-    
-    # 2. Запускаем тесты напрямую (без Docker)
-    - name: Run tests
-      run: |
-        cd backend
-        if [ -f "package.json" ]; then
-          npm test 2>/dev/null || echo "Tests completed"
-        fi
-    
-    # 3. Три простых теста для курсовой
-    - name: Project validation tests
-      run: |
-        echo "=== Running Course Project Tests ==="
-        
-        # Тест 1: Проверка структуры проекта
-        echo "1. Project structure check:"
-        [ -f "backend/Dockerfile" ] && echo "   Backend Dockerfile exists" || echo "   ❌ Backend Dockerfile missing"
-        [ -f "nginx/Dockerfile" ] && echo "   Nginx Dockerfile exists" || echo "   ❌ Nginx Dockerfile missing"
-        [ -f "docker-compose.yml" ] && echo "   docker-compose.yml exists" || echo "   ❌ docker-compose.yml missing"
-        [ -f "backend/package.json" ] && echo "   Backend package.json exists" || echo "   ❌ Backend package.json missing"
-        [ -f "backend/src/index.js" ] && echo "   Backend entry point exists" || echo "   ❌ Backend index.js missing"
-        
-        # Тест 2: Проверка Docker сборки
-        echo ""
-        echo "2. Docker build test:"
-        if docker build -f backend/Dockerfile -t test-backend . > /dev/null 2>&1; then
-          echo "    Backend Dockerfile builds successfully"
-        else
-          echo "    Backend Dockerfile failed to build"
-        fi
-        
-        if docker build -f nginx/Dockerfile -t test-nginx . > /dev/null 2>&1; then
-          echo "    Nginx Dockerfile builds successfully"
-        else
-          echo "    Nginx Dockerfile failed to build"
-        fi
-        
-        # Тест 3: Проверка запуска приложения
-        echo ""
-        echo "3. Application startup test:"
-        cd backend
-        
-        # Проверяем, что Node.js может выполнить файл
-        if timeout 3s node -c src/index.js 2>/dev/null; then
-          echo "    Backend JavaScript syntax is valid"
-        else
-          echo "    Backend has syntax errors"
-        fi
-        
-        # Простая проверка, что приложение что-то делает
-        echo ""
-        echo "4. Basic API test (if available):"
-        
-        # Запускаем сервер в фоне
-        node src/index.js &
-        SERVER_PID=$!
-        sleep 2
-        
-        # Проверяем, что процесс работает
-        if kill -0 $SERVER_PID 2>/dev/null; then
-          echo "   Server process is running"
-          
-          # Пробуем сделать запрос (если есть /health или корень)
-          if curl -s -f http://localhost:5000/health > /dev/null 2>&1; then
-            echo "   Health endpoint responds"
-          elif curl -s -f http://localhost:5000 > /dev/null 2>&1; then
-            echo "   Root endpoint responds"
-          else
-            echo "    Server running but no HTTP response (might be expected)"
-          fi
-          
-          # Убиваем процесс
-          kill $SERVER_PID 2>/dev/null || true
-        else
-          echo "   Server failed to start"
-        fi
-        
-        echo ""
-        echo "=== All tests completed ==="
-    
-    # 4. Собираем и пушим только если есть теги
-    - name: Build and push all images
-      run: |
-        # Подготовка
-        mkdir -p frontend
-        echo "<h1>App</h1>" > frontend/index.html
-        
-        # Логин
-        echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-        
-        # Бэкенд
-        docker build -f backend/Dockerfile -t deskarp/platform-backend:latest .
-        docker push deskarp/platform-backend:latest
-        echo "Backend: deskarp/platform-backend:latest"
-        
-        # Nginx
-        docker build -f nginx/Dockerfile -t deskarp/platform-nginx:latest .
-        docker push deskarp/platform-nginx:latest
-        echo "Nginx: deskarp/platform-nginx:latest"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 👇 ПРОСТЕЙШИЙ SMOKE TEST (ничего не пушит)
+      - name: Smoke test - build backend image
+        run: docker build -f backend/Dockerfile .
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:latest
+
+      - name: Build and push nginx image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: nginx/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest
