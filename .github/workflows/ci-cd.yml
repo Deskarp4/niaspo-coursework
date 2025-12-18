@@ -27,7 +27,7 @@ jobs:
 
       - name: Smoke test - build backend image
         run: |
-          docker build -f backend/Dockerfile .
+          docker build -f backend/Dockerfile -t backend backend
           docker run --rm backend node -e "console.log('Backend OK')"
 
       - name: Login to Docker Hub
