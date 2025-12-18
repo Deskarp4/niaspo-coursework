@@ -7,8 +7,7 @@ services:
       - "8080:80"
     build:
       context: .
-    dockerfile:
-      ./nginx/Dockerfile
+      dockerfile: ./nginx/Dockerfile
     deploy:
       replicas: 1
       restart_policy:
