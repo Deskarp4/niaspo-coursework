@@ -1,4 +1,4 @@
-name: Test Env Platform CI/CD
+name: Platform CI/CD (Swarm)
 
 on:
   push:
@@ -14,56 +14,42 @@ jobs:
   ci:
     name: Build and Test (Docker Compose)
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      # ---------- BUILD IMAGES FOR TESTING ----------
       - name: Build backend image
         run: docker build -t test-backend -f backend/Dockerfile .
 
       - name: Build nginx image
         run: docker build -t test-nginx -f nginx/Dockerfile .
 
-      # ---------- START TEST ENV ----------
       - name: Start test environment
         run: docker compose -f docker-compose.yml up -d
 
       - name: Wait for services
         run: |
           echo "Waiting for services to initialize..."
-          sleep 25
+          sleep 30
           docker compose -f docker-compose.yml ps
 
-      # ---------- INTEGRATION TESTS ----------
       - name: Health checks
         run: |
-          echo "Checking backend health..."
           curl -f http://localhost:5000/health || exit 1
-
-          echo "Checking API routing through nginx..."
           curl -f http://localhost:8080/api || curl -f http://localhost:8080/ || exit 1
 
-      # ---------- CLEANUP ----------
       - name: Stop test environment
         if: always()
         run: docker compose -f docker-compose.yml down -v
 
   cd:
-    name: Build and Push Docker Images
+    name: Deploy to Docker Swarm
     needs: ci
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -71,8 +57,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ---------- BUILD & PUSH PRODUCTION IMAGES ----------
-      - name: Build and push backend
+      - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -80,10 +65,18 @@ jobs:
           push: true
           tags: ${{ env.BACKEND_IMAGE }}:latest
 
-      - name: Build and push nginx
+      - name: Build and push nginx image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: nginx/Dockerfile
           push: true
           tags: ${{ env.NGINX_IMAGE }}:latest
+
+      - name: Initialize Swarm (if not already)
+        run: |
+          docker swarm init || echo "Swarm already initialized"
+
+      - name: Deploy stack
+        run: |
+          docker stack deploy -c docker-compose.yml platform-stack

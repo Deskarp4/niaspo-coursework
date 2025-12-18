@@ -2,29 +2,22 @@ version: "3.8"
 
 services:
   nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
+    image: deskarp/platform-nginx:latest
     ports:
       - "8080:80"
-    depends_on:
-      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
   backend:
-    build: 
-      context: .
-      dockerfile: backend/Dockerfile
-    ports:
-      - "5000"
+    image: deskarp/platform-backend:latest
     environment:
       - NODE_ENV=development
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     deploy: 
       replicas: 2
+      restart_policy:
+        condition: on-failure
 
   postgres:
     image: postgres:15
@@ -33,21 +26,20 @@ services:
       POSTGRES_PASSWORD: mypass
       POSTGRES_DB: pgdb
     ports:
-     - "5432:5432"
+      - "5432:5432"
     volumes:
-     - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d pgdb"]
-      interval: 2s
-      timeout: 2s
-      retries: 20
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
   redis:
     image: redis:8.2.3
     ports:
-     - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      - "6379:6379"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
