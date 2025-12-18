@@ -1,53 +1,51 @@
-name: CI/CD - Test Environment Platform
+#0 building with "default" instance using docker driver
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 219B done
+#1 DONE 0.0s
 
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+#2 [auth] library/node:pull token for registry-1.docker.io
+#2 DONE 0.0s
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+#3 [internal] load metadata for docker.io/library/node:25-alpine
+#3 DONE 0.5s
 
-      - name: Debug - list files
-        run: |
-          ls -la
-          ls -la src || echo "NO SRC"
-          ls -la backend
-          ls -la backend/src || echo "NO BACKEND/SRC"
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+#5 [internal] load build context
+#5 transferring context: 2B done
+#5 DONE 0.0s
 
-      # 👇 ПРОДВИНУТЫЙ SMOKE TEST ДЛЯ BACKEND
-      - name: Smoke test - backend container start
-        run: |
-          docker build -t backend-test backend
-          docker run --rm backend-test node -e "console.log('Backend OK')"
+#6 [2/6] WORKDIR /app
+#6 CACHED
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+#7 [3/6] COPY backend/package*.json ./
+#7 CACHED
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: backend/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:latest
+#8 [4/6] COPY backend/package-lock*.json ./
+#8 CACHED
 
-      - name: Build and push nginx image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: nginx/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest
+#9 [5/6] RUN npm install
+#9 CACHED
+
+#10 [6/6] COPY backend ./backend
+#10 ERROR: failed to calculate checksum of ref 0a695d56-123a-42a8-a772-617b83954cb8::aarvz2vldbpa9vbghfadx6pa4: "/backend": not found
+
+#11 [1/6] FROM docker.io/library/node:25-alpine@sha256:f4769ca6eeb6ebbd15eb9c8233afed856e437b75f486f7fccaa81d7c8ad56007
+#11 resolve docker.io/library/node:25-alpine@sha256:f4769ca6eeb6ebbd15eb9c8233afed856e437b75f486f7fccaa81d7c8ad56007 done
+#11 sha256:f4769ca6eeb6ebbd15eb9c8233afed856e437b75f486f7fccaa81d7c8ad56007 3.87kB / 3.87kB done
+#11 CANCELED
+------
+ > [6/6] COPY backend ./backend:
+------
+Dockerfile:6
+--------------------
+   4 |     COPY backend/package-lock*.json ./
+   5 |     RUN npm install
+   6 | >>> COPY backend ./backend 
+   7 |     EXPOSE 5000
+   8 |     CMD ["node", "src/index.js"]  
+--------------------
+ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref 0a695d56-123a-42a8-a772-617b83954cb8::aarvz2vldbpa9vbghfadx6pa4: "/backend": not found
