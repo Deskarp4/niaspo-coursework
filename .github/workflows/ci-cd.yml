@@ -44,7 +44,8 @@ jobs:
 
       # --- Сборка для тестов ---
       - name: Build backend image for testing
-        run: docker build -t platform-backend:test ./backend
+        run: docker build -t platform-backend:test .
+
 
       - name: Build nginx image for testing
         run: docker build -t platform-nginx:test ./nginx
