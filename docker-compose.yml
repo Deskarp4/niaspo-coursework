@@ -50,12 +50,10 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Backend Image
-        run: |
-          docker build -t deskarp/platform-backend:latest ./backend
+        run: docker build -t deskarp/platform-backend:latest ./backend
 
       - name: Build Nginx Image
-        run: |
-          docker build -t deskarp/platform-nginx:latest ./nginx
+        run: docker build -t deskarp/platform-nginx:latest ./nginx
 
       - name: Run Unit Tests
         run: |
@@ -69,7 +67,6 @@ jobs:
         run: |
           docker-compose -f docker-compose.yml up -d
           sleep 15
-          # Здесь можно запускать скрипт интеграционных тестов
           docker-compose -f docker-compose.yml exec backend npm run test:integration
           docker-compose -f docker-compose.yml down
 
@@ -88,8 +85,5 @@ jobs:
 
       - name: Deploy to Swarm
         run: |
-          # Инициализация swarm (если ещё не инициализирован)
           docker swarm init || true
-
-          # Обновление сервисов
-          docker stack deploy -c docker-compose.yml platform
+          docker stack deploy -c docker-compose.yml platform-stack
