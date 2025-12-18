@@ -17,9 +17,14 @@ services:
     image: deskarp/platform-backend:latest
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=postgresql://myuser:mypass@postgres:5432/pgdb
+      - REDIS_URL=redis://redis:6379
     build: 
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./backend/Dockerfile
+    depends_on:
+      - postgres
+      - redis
     deploy: 
       replicas: 2
       restart_policy:
@@ -34,7 +39,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
     deploy:
       replicas: 1
       restart_policy:
