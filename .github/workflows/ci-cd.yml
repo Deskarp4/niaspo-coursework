@@ -12,7 +12,7 @@ env:
 
 jobs:
   ci:
-    name: Build and Test (Swarm)
+    name: Build, Deploy and Test (Swarm)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +25,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Build and push backend image
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
@@ -33,6 +34,7 @@ jobs:
           push: true
           tags: ${{ env.BACKEND_IMAGE }}:latest
 
+      # Build and push nginx image
       - name: Build and push nginx image
         uses: docker/build-push-action@v5
         with:
@@ -41,34 +43,32 @@ jobs:
           push: true
           tags: ${{ env.NGINX_IMAGE }}:latest
 
-      - name: Initialize Swarm
+      # Initialize Swarm
+      - name: Initialize Docker Swarm
         run: docker swarm init || echo "Swarm already initialized"
 
+      # Deploy the stack
       - name: Deploy stack
         run: docker stack deploy -c docker-compose.yml platform-stack
 
+      # Wait for services to stabilize
       - name: Wait for services
         run: |
-          echo "Waiting for services to stabilize..."
+          echo "Waiting for services..."
           sleep 30
           docker service ls
           docker stack ps platform-stack
 
+      # Health checks using Swarm DNS
       - name: Health checks
         run: |
-          # Получаем адрес локального nginx
-          NGINX_SERVICE=$(docker service ls --filter name=platform-stack_nginx -q)
-          NGINX_TASK=$(docker service ps $NGINX_SERVICE --filter "desired-state=running" -q | head -n1)
-          NGINX_CONTAINER=$(docker inspect --format '{{.Status.ContainerStatus.ContainerID}}' $NGINX_TASK)
-          IP=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $NGINX_CONTAINER)
-          
-          curl -f http://$IP/api || curl -f http://$IP/ || exit 1
-          BACKEND_SERVICE=$(docker service ls --filter name=platform-stack_backend -q)
-          BACKEND_TASK=$(docker service ps $BACKEND_SERVICE --filter "desired-state=running" -q | head -n1)
-          BACKEND_CONTAINER=$(docker inspect --format '{{.Status.ContainerStatus.ContainerID}}' $BACKEND_TASK)
-          BACKEND_IP=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $BACKEND_CONTAINER)
-          curl -f http://$BACKEND_IP:5000/health || exit 1
+          echo "Checking NGINX..."
+          curl -f http://platform-stack_nginx:80/api || curl -f http://platform-stack_nginx:80/ || exit 1
 
+          echo "Checking Backend..."
+          curl -f http://platform-stack_backend:5000/health || exit 1
+
+      # Remove stack
       - name: Remove stack
         if: always()
         run: docker stack rm platform-stack
