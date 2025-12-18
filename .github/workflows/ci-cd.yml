@@ -31,13 +31,13 @@ jobs:
 
       # ---------- START TEST ENV ----------
       - name: Start test environment
-        run: docker-compose -f docker-compose.ci.yml up -d
+        run: docker compose -f docker compose.ci.yml up -d
 
       - name: Wait for services
         run: |
           echo "Waiting for services to initialize..."
           sleep 25
-          docker-compose -f docker-compose.ci.yml ps
+          docker compose -f docker compose.ci.yml ps
 
       # ---------- INTEGRATION TESTS ----------
       - name: Health checks
@@ -51,7 +51,7 @@ jobs:
       # ---------- CLEANUP ----------
       - name: Stop test environment
         if: always()
-        run: docker-compose -f docker-compose.ci.yml down -v
+        run: docker compose -f docker compose.ci.yml down -v
 
   cd:
     name: Build and Push Docker Images
