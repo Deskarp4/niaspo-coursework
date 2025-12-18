@@ -1,69 +1,95 @@
-version: "3.8"
+name: CI/CD Pipeline
 
-services:
-  nginx:
-    image: deskarp/platform-nginx:latest
-    ports:
-      - "8080:80"           # Swarm сам балансирует между репликами nginx
-    deploy:
-      replicas: 2           # 2 реплики nginx для балансировки
-      restart_policy:
-        condition: on-failure
-    networks:
-      - app-network
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
-  backend:
-    image: deskarp/platform-backend:latest
-    environment:
-      - NODE_ENV=development
-      - PORT=5000
-    # НЕ публикуем порт - доступ только через nginx
-    deploy: 
-      replicas: 2
-      restart_policy:
-        condition: on-failure
-    networks:
-      - app-network
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: myuser
+          POSTGRES_PASSWORD: mypass
+          POSTGRES_DB: pgdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U myuser -d pgdb" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
 
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypass
-      POSTGRES_DB: pgdb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    configs:
-      - source: postgres_init
-        target: /docker-entrypoint-initdb.d/init.sql
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-    networks:
-      - app-network
+      redis:
+        image: redis:8.2.3
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
 
-  redis:
-    image: redis:8.2.3
-    ports:
-      - "6379:6379"
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-    networks:
-      - app-network
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-networks:
-  app-network:
-    driver: overlay
-    attachable: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-configs:
-  postgres_init:
-    file: ./init.sql
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-volumes:
-  postgres_data:
+      - name: Build Backend Image
+        run: |
+          docker build -t deskarp/platform-backend:latest ./backend
+
+      - name: Build Nginx Image
+        run: |
+          docker build -t deskarp/platform-nginx:latest ./nginx
+
+      - name: Run Unit Tests
+        run: |
+          docker run --rm \
+            --network host \
+            -e NODE_ENV=development \
+            deskarp/platform-backend:latest \
+            npm test
+
+      - name: Run Integration Tests
+        run: |
+          docker-compose -f docker-compose.yml up -d
+          sleep 15
+          # Здесь можно запускать скрипт интеграционных тестов
+          docker-compose -f docker-compose.yml exec backend npm run test:integration
+          docker-compose -f docker-compose.yml down
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Deploy to Swarm
+        run: |
+          # Инициализация swarm (если ещё не инициализирован)
+          docker swarm init || true
+
+          # Обновление сервисов
+          docker stack deploy -c docker-compose.yml platform
