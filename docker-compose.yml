@@ -1,89 +1,45 @@
-name: CI/CD Pipeline
+version: "3.8"
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+services:
+  nginx:
+    image: deskarp/platform-nginx:latest
+    ports:
+      - "8080:80"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: myuser
-          POSTGRES_PASSWORD: mypass
-          POSTGRES_DB: pgdb
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U myuser -d pgdb" 
-          --health-interval 10s 
-          --health-timeout 5s 
-          --health-retries 5
+  backend:
+    image: deskarp/platform-backend:latest
+    environment:
+      - NODE_ENV=development
+    deploy: 
+      replicas: 2
+      restart_policy:
+        condition: on-failure
 
-      redis:
-        image: redis:8.2.3
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping" 
-          --health-interval 10s 
-          --health-timeout 5s 
-          --health-retries 5
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypass
+      POSTGRES_DB: pgdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  redis:
+    image: redis:8.2.3
+    ports:
+      - "6379:6379"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build Backend Image
-        run: docker build -t deskarp/platform-backend:latest ./backend
-
-      - name: Build Nginx Image
-        run: docker build -t deskarp/platform-nginx:latest ./nginx
-
-      - name: Run Unit Tests
-        run: |
-          docker run --rm \
-            --network host \
-            -e NODE_ENV=development \
-            deskarp/platform-backend:latest \
-            npm test
-
-      - name: Run Integration Tests
-        run: |
-          docker-compose -f docker-compose.yml up -d
-          sleep 15
-          docker-compose -f docker-compose.yml exec backend npm run test:integration
-          docker-compose -f docker-compose.yml down
-
-  deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Log in to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Deploy to Swarm
-        run: |
-          docker swarm init || true
-          docker stack deploy -c docker-compose.yml platform-stack
