@@ -35,25 +35,25 @@ jobs:
         
         # Тест 1: Проверка структуры проекта
         echo "1. Project structure check:"
-        [ -f "backend/Dockerfile" ] && echo "   ✅ Backend Dockerfile exists" || echo "   ❌ Backend Dockerfile missing"
-        [ -f "nginx/Dockerfile" ] && echo "   ✅ Nginx Dockerfile exists" || echo "   ❌ Nginx Dockerfile missing"
-        [ -f "docker-compose.yml" ] && echo "   ✅ docker-compose.yml exists" || echo "   ❌ docker-compose.yml missing"
-        [ -f "backend/package.json" ] && echo "   ✅ Backend package.json exists" || echo "   ❌ Backend package.json missing"
-        [ -f "backend/src/index.js" ] && echo "   ✅ Backend entry point exists" || echo "   ❌ Backend index.js missing"
+        [ -f "backend/Dockerfile" ] && echo "   Backend Dockerfile exists" || echo "   ❌ Backend Dockerfile missing"
+        [ -f "nginx/Dockerfile" ] && echo "   Nginx Dockerfile exists" || echo "   ❌ Nginx Dockerfile missing"
+        [ -f "docker-compose.yml" ] && echo "   docker-compose.yml exists" || echo "   ❌ docker-compose.yml missing"
+        [ -f "backend/package.json" ] && echo "   Backend package.json exists" || echo "   ❌ Backend package.json missing"
+        [ -f "backend/src/index.js" ] && echo "   Backend entry point exists" || echo "   ❌ Backend index.js missing"
         
         # Тест 2: Проверка Docker сборки
         echo ""
         echo "2. Docker build test:"
         if docker build -f backend/Dockerfile -t test-backend . > /dev/null 2>&1; then
-          echo "   ✅ Backend Dockerfile builds successfully"
+          echo "    Backend Dockerfile builds successfully"
         else
-          echo "   ❌ Backend Dockerfile failed to build"
+          echo "    Backend Dockerfile failed to build"
         fi
         
         if docker build -f nginx/Dockerfile -t test-nginx . > /dev/null 2>&1; then
-          echo "   ✅ Nginx Dockerfile builds successfully"
+          echo "    Nginx Dockerfile builds successfully"
         else
-          echo "   ❌ Nginx Dockerfile failed to build"
+          echo "    Nginx Dockerfile failed to build"
         fi
         
         # Тест 3: Проверка запуска приложения
@@ -63,9 +63,9 @@ jobs:
         
         # Проверяем, что Node.js может выполнить файл
         if timeout 3s node -c src/index.js 2>/dev/null; then
-          echo "   ✅ Backend JavaScript syntax is valid"
+          echo "    Backend JavaScript syntax is valid"
         else
-          echo "   ❌ Backend has syntax errors"
+          echo "    Backend has syntax errors"
         fi
         
         # Простая проверка, что приложение что-то делает
@@ -79,44 +79,42 @@ jobs:
         
         # Проверяем, что процесс работает
         if kill -0 $SERVER_PID 2>/dev/null; then
-          echo "   ✅ Server process is running"
+          echo "   Server process is running"
           
           # Пробуем сделать запрос (если есть /health или корень)
           if curl -s -f http://localhost:5000/health > /dev/null 2>&1; then
-            echo "   ✅ Health endpoint responds"
+            echo "   Health endpoint responds"
           elif curl -s -f http://localhost:5000 > /dev/null 2>&1; then
-            echo "   ✅ Root endpoint responds"
+            echo "   Root endpoint responds"
           else
-            echo "   ⚠️  Server running but no HTTP response (might be expected)"
+            echo "    Server running but no HTTP response (might be expected)"
           fi
           
           # Убиваем процесс
           kill $SERVER_PID 2>/dev/null || true
         else
-          echo "   ❌ Server failed to start"
+          echo "   Server failed to start"
         fi
         
         echo ""
         echo "=== All tests completed ==="
     
     # 4. Собираем и пушим только если есть теги
-    - name: Build and push
-      if: startsWith(github.ref, 'refs/tags/')
+    - name: Build and push all images
       run: |
-        echo "Building and pushing images for tag: ${{ github.ref_name }}"
+        # Подготовка
+        mkdir -p frontend
+        echo "<h1>App</h1>" > frontend/index.html
         
-        # Собираем образы
-        docker build -f backend/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:${{ github.ref_name }} .
-        docker build -f nginx/Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:${{ github.ref_name }} .
-        
-        # Логинимся в Docker Hub
+        # Логин
         echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
         
-        # Пушим
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:${{ github.ref_name }}
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:${{ github.ref_name }}
+        # Бэкенд
+        docker build -f backend/Dockerfile -t deskarp/platform-backend:latest .
+        docker push deskarp/platform-backend:latest
+        echo "Backend: deskarp/platform-backend:latest"
         
-        echo ""
-        echo "✅ Successfully pushed:"
-        echo "   - ${{ secrets.DOCKERHUB_USERNAME }}/platform-backend:${{ github.ref_name }}"
-        echo "   - ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:${{ github.ref_name }}"
+        # Nginx
+        docker build -f nginx/Dockerfile -t deskarp/platform-nginx:latest .
+        docker push deskarp/platform-nginx:latest
+        echo "Nginx: deskarp/platform-nginx:latest"
