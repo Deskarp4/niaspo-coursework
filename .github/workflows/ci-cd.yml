@@ -12,43 +12,11 @@ env:
 
 jobs:
   ci:
-    name: Build and Test (Docker Compose)
+    name: Build and Test (Swarm)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Build backend image
-        run: docker build -t test-backend -f backend/Dockerfile .
-
-      - name: Build nginx image
-        run: docker build -t test-nginx -f nginx/Dockerfile .
-
-      - name: Start test environment
-        run: docker compose -f docker-compose.yml up -d
-
-      - name: Wait for services
-        run: |
-          echo "Waiting for services to initialize..."
-          sleep 30
-          docker compose -f docker-compose.yml ps
-
-      - name: Health checks
-        run: |
-          curl -f http://localhost:5000/health || exit 1
-          curl -f http://localhost:8080/api || curl -f http://localhost:8080/ || exit 1
-
-      - name: Stop test environment
-        if: always()
-        run: docker compose -f docker-compose.yml down -v
-
-  cd:
-    name: Deploy to Docker Swarm
-    needs: ci
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
@@ -73,10 +41,34 @@ jobs:
           push: true
           tags: ${{ env.NGINX_IMAGE }}:latest
 
-      - name: Initialize Swarm (if not already)
-        run: |
-          docker swarm init || echo "Swarm already initialized"
+      - name: Initialize Swarm
+        run: docker swarm init || echo "Swarm already initialized"
 
       - name: Deploy stack
+        run: docker stack deploy -c docker-compose.yml platform-stack
+
+      - name: Wait for services
         run: |
-          docker stack deploy -c docker-compose.yml platform-stack
+          echo "Waiting for services to stabilize..."
+          sleep 30
+          docker service ls
+          docker stack ps platform-stack
+
+      - name: Health checks
+        run: |
+          # Получаем адрес локального nginx
+          NGINX_SERVICE=$(docker service ls --filter name=platform-stack_nginx -q)
+          NGINX_TASK=$(docker service ps $NGINX_SERVICE --filter "desired-state=running" -q | head -n1)
+          NGINX_CONTAINER=$(docker inspect --format '{{.Status.ContainerStatus.ContainerID}}' $NGINX_TASK)
+          IP=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $NGINX_CONTAINER)
+          
+          curl -f http://$IP/api || curl -f http://$IP/ || exit 1
+          BACKEND_SERVICE=$(docker service ls --filter name=platform-stack_backend -q)
+          BACKEND_TASK=$(docker service ps $BACKEND_SERVICE --filter "desired-state=running" -q | head -n1)
+          BACKEND_CONTAINER=$(docker inspect --format '{{.Status.ContainerStatus.ContainerID}}' $BACKEND_TASK)
+          BACKEND_IP=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $BACKEND_CONTAINER)
+          curl -f http://$BACKEND_IP:5000/health || exit 1
+
+      - name: Remove stack
+        if: always()
+        run: docker stack rm platform-stack
