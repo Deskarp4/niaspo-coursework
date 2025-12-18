@@ -96,4 +96,4 @@ jobs:
 
       - name: Push nginx image
         if: success()
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/platform-nginx:latest  
